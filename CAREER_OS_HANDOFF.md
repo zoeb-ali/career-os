@@ -9,7 +9,7 @@
 **Developer:** Zoeb Ali Khan — M.Sc. Data Science, Universität Bielefeld
 **Purpose:** Production-grade portfolio project demonstrating the complete Data Science lifecycle
 **Timeline:** Built over multiple sessions across several weeks
-**Status:** Moved off Railway (trial ended Oct 2026) to free-forever hosting: Vercel + Render + Neon + Qdrant Cloud + GitHub Actions
+**Status:** Live on free-forever hosting since 10 Oct 2026 (Vercel + Render + Neon + Qdrant Cloud + GitHub Actions), after the Railway trial ended
 
 **Live URLs:**
 - Frontend (Vercel): https://career-os-xi-bay.vercel.app
@@ -47,9 +47,9 @@
 - Skill normalizer: 85 canonical skills + fuzzy matching via rapidfuzz
 - SHA-256 deduplication across sources
 - Prefect orchestration flows for daily ingestion + market snapshots
-- 656 real jobs in production database
+- 686 real jobs loaded by the first nightly ingestion run on the new stack (656 on Railway before)
 
-**Frontend — Next.js 14**
+**Frontend — Next.js 16**
 - 10 pages: landing, login, register, jobs, ATS, analytics, advisor, dashboard, tracker, import
 - Deep teal + warm amber design system (custom CSS variables)
 - Recharts market intelligence dashboards
@@ -199,6 +199,26 @@ Every module is a self-contained node with:
 **Root cause:** Render's free service sleeps after 15 min idle (about 1 min to wake), but its 750 free hours per month are shared by the whole workspace, which also hosts the Electricity Forecaster API. Pinging 24/7 would use about 744 h alone.
 **Solution:** Added a dependency-free `/ping` endpoint and `keepalive.yml`, which pings it every 10 minutes from 07:00 to 23:00 Berlin time (about 500 h/month). The embedding model is baked into the Docker image so a woken instance doesn't download it. Measured API memory: about 190 MB at start, 280 MB after `/health`, roughly 450 MB with the embedding model, inside the 512 MB limit.
 
+### Problem 23: Vercel build failed after Next.js compiled successfully
+**Symptom:** `npm run build` finished all 13 pages, then failed in "Running onBuildComplete from Vercel" with `ENOENT .next/next-server.js.nft.json`.
+**Root cause:** `output: "standalone"` in `next.config.ts` (added for the Railway Docker image) conflicts with Vercel's own packaging.
+**Solution:** `output: process.env.VERCEL ? undefined : "standalone"`. Vercel sets `VERCEL=1` during its builds; the Docker image still gets standalone output.
+
+### Problem 24: Ingestion workflow rejected at startup
+**Symptom:** GitHub Actions showed "Startup failure" and listed the workflow by file path instead of its name.
+**Root cause:** `PREFECT_HOME: ${{ runner.temp }}/prefect` in the job-level `env:` block. The `runner` context is not available there (only `github`, `vars`, `secrets`, `inputs`, `needs`, `strategy`, `matrix`).
+**Solution:** `PREFECT_HOME: /tmp/prefect`. The next run fetched 2,171 jobs, kept 686 after deduplication, and embedded them into Qdrant Cloud.
+
+### Problem 25: Setting up the free stack (10 Oct 2026, in order)
+1. Neon project `career-os` in Frankfurt; connection string copied with pooling off.
+2. Qdrant Cloud free cluster `career-os` in Frankfurt; API key created (shown once, saved by Zoeb).
+3. Seven GitHub repository secrets added (Zoeb pasted the secret values himself).
+4. Render Blueprint `career-os` from `render.yaml` → `career-os-api`; first `/health` returned `overall: ok` with all 13 nodes green and the embedding model loaded within 512 MB.
+5. Vercel project `career-os`, root directory `frontend`, `NEXT_PUBLIC_API_URL` set to the Render URL.
+6. Render `CORS_ORIGINS` changed from `*` to the Vercel URL; GitHub variable `API_URL` set to turn on the daytime keep-alive.
+7. Verified end to end: the Vercel jobs page loads 686 listings from the Render API.
+8. Repository cleanup: removed the old `HANDOFF.md`, the create-next-app `frontend/README.md`, empty `docs/`, `infrastructure/`, `ml/notebooks/` folders and local caches.
+
 ---
 
 ## TECH STACK SUMMARY
@@ -213,7 +233,7 @@ Every module is a self-contained node with:
 | Embeddings | fastembed | No PyTorch dependency, same quality |
 | Orchestration | Prefect | Python-native, free cloud tier |
 | ML Tracking | MLflow | Experiment versioning |
-| Frontend | Next.js 14 | App Router, TypeScript, SSE support |
+| Frontend | Next.js 16 | App Router, TypeScript, SSE support |
 | Deployment | Vercel + Render + Neon + Qdrant Cloud | All free forever, no credit card |
 | CI | GitHub Actions | Free for public repos |
 
@@ -264,7 +284,7 @@ career-os/
 │   ├── connectors/           adzuna, reed, remotive
 │   ├── transformers/         dedup, skill_normalizer
 │   └── flows/                ingestion_flow, snapshot_flow
-├── frontend/                 Next.js 14
+├── frontend/                 Next.js 16 (deployed on Vercel, root directory frontend)
 │   ├── app/                  10 pages
 │   ├── components/
 │   ├── lib/                  api.ts client
@@ -274,7 +294,7 @@ career-os/
 ├── docker-compose.prod.yml   production (no mlflow, no volume mounts)
 ├── render.yaml               Render blueprint for the API
 ├── Makefile                  make dev/test/health/migrate/seed/ingest
-├── HANDOFF.md                this file
+├── CAREER_OS_HANDOFF.md      this file (the older HANDOFF.md planning doc was removed)
 ├── DEPLOY.md                 deployment instructions
 └── .github/workflows/
     ├── ci.yml                test + lint on every push
@@ -294,8 +314,8 @@ LIVE: https://career-os-xi-bay.vercel.app
 API: https://career-os-api-soen.onrender.com
 STACK: FastAPI + PostgreSQL (Neon) + Qdrant Cloud + Groq LLM + fastembed + Next.js + Docker + Render + Vercel + Prefect + MLflow + GitHub Actions
 ARCHITECTURE: Every module = self-contained node (logger + error codes + health check + tests)
-DATA: 656 real jobs from Adzuna/Reed/Remotive in production DB
-KEY FILES: HANDOFF.md (this), DEPLOY.md (deployment steps)
+DATA: ~686 real jobs from Adzuna/Reed/Remotive in Neon, refreshed nightly by GitHub Actions
+KEY FILES: CAREER_OS_HANDOFF.md (this), DEPLOY.md (deployment steps + current production reference), README.md (deployment journey)
 CURRENT TASK: [update this]
 ```
 
