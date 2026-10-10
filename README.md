@@ -13,7 +13,7 @@
 
 **A production-grade platform combining job discovery, ATS resume analysis, AI career advice, and labor market intelligence — built as a full Data Science portfolio project.**
 
-[🌐 Live Demo](__FRONTEND_URL__) · [📖 API Docs](__API_URL__/docs) · [🐛 Report Bug](https://github.com/zoeb-ali/career-os/issues)
+[🌐 Live Demo](https://career-os-xi-bay.vercel.app) · [📖 API Docs](https://career-os-api-soen.onrender.com/docs) · [🐛 Report Bug](https://github.com/zoeb-ali/career-os/issues)
 
 </div>
 
@@ -83,10 +83,10 @@ Career OS is a unified AI platform for students and job seekers that replaces sc
 
 | Service | URL | Host |
 |---------|-----|------|
-| 🌐 Frontend | __FRONTEND_URL__ | Vercel |
-| 🔌 Backend API | __API_URL__ | Render (free) |
-| 📖 API Docs | __API_URL__/docs | Render (free) |
-| ❤️ Health Check | __API_URL__/health | Render (free) |
+| 🌐 Frontend | https://career-os-xi-bay.vercel.app | Vercel |
+| 🔌 Backend API | https://career-os-api-soen.onrender.com | Render (free) |
+| 📖 API Docs | https://career-os-api-soen.onrender.com/docs | Render (free) |
+| ❤️ Health Check | https://career-os-api-soen.onrender.com/health | Render (free) |
 
 Database on **Neon** Postgres, vectors on **Qdrant Cloud**, and a nightly **GitHub Actions** job refreshes the jobs. The API may take about a minute to wake if nobody has used it overnight. Full setup in [DEPLOY.md](DEPLOY.md).
 
@@ -286,7 +286,7 @@ Test coverage includes unit tests for all ML nodes, API endpoint tests, health c
 | POST | `/api/v1/import/upload` | Smart Import — parse spreadsheet/PDF |
 | POST | `/api/v1/import/confirm` | Confirm and save imported applications |
 
-Full interactive docs at [__API_URL__/docs](__API_URL__/docs)
+Full interactive docs at [https://career-os-api-soen.onrender.com/docs](https://career-os-api-soen.onrender.com/docs)
 
 ---
 

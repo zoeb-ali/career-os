@@ -12,9 +12,9 @@
 **Status:** Moved off Railway (trial ended Oct 2026) to free-forever hosting: Vercel + Render + Neon + Qdrant Cloud + GitHub Actions
 
 **Live URLs:**
-- Frontend (Vercel): __FRONTEND_URL__
-- Backend API (Render): __API_URL__
-- API Docs: __API_URL__/docs
+- Frontend (Vercel): https://career-os-xi-bay.vercel.app
+- Backend API (Render): https://career-os-api-soen.onrender.com
+- API Docs: https://career-os-api-soen.onrender.com/docs
 - GitHub: https://github.com/zoeb-ali/career-os
 
 ---
@@ -290,8 +290,8 @@ career-os/
 PROJECT: AI Career Operating System (career-os)
 STATUS: Complete; hosted on Vercel + Render + Neon + Qdrant Cloud (free forever)
 GITHUB: https://github.com/zoeb-ali/career-os
-LIVE: __FRONTEND_URL__
-API: __API_URL__
+LIVE: https://career-os-xi-bay.vercel.app
+API: https://career-os-api-soen.onrender.com
 STACK: FastAPI + PostgreSQL (Neon) + Qdrant Cloud + Groq LLM + fastembed + Next.js + Docker + Render + Vercel + Prefect + MLflow + GitHub Actions
 ARCHITECTURE: Every module = self-contained node (logger + error codes + health check + tests)
 DATA: 656 real jobs from Adzuna/Reed/Remotive in production DB
