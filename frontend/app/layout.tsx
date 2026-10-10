@@ -14,9 +14,31 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const siteUrl = process.env.VERCEL_PROJECT_PRODUCTION_URL
+  ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+  : "http://localhost:3000";
+
+const siteTitle = "Career OS — AI Career Operating System";
+const siteDescription =
+  "Ingest jobs, score your resume, get personalised recommendations, and ask a career advisor — all in one place.";
+
 export const metadata: Metadata = {
-  title: "Career OS — AI Career Operating System",
-  description: "Ingest jobs, score your resume, get personalised recommendations, and ask a career advisor — all in one place.",
+  // Absolute base so og:image resolves to a full URL (LinkedIn needs this for link previews).
+  metadataBase: new URL(siteUrl),
+  title: siteTitle,
+  description: siteDescription,
+  openGraph: {
+    type: "website",
+    siteName: "Career OS",
+    title: siteTitle,
+    description: siteDescription,
+    url: "/",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: siteTitle,
+    description: siteDescription,
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
