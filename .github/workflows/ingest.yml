@@ -32,7 +32,7 @@ jobs:
       SKILL_EXTRACTION_DELAY_S: "2.5"   # ≈24 Groq calls/min, under the free limit
       PYTHONPATH: ${{ github.workspace }}/backend:${{ github.workspace }}
       FASTEMBED_CACHE_PATH: ${{ github.workspace }}/.fastembed_cache
-      PREFECT_HOME: ${{ runner.temp }}/prefect
+      PREFECT_HOME: /tmp/prefect
       POSTGRES_URL: ${{ secrets.POSTGRES_URL }}
       QDRANT_URL: ${{ secrets.QDRANT_URL }}
       QDRANT_API_KEY: ${{ secrets.QDRANT_API_KEY }}
