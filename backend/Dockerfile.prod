@@ -1,0 +1,45 @@
+# ─────────────────────────────────────────────────────────────────
+#  Career OS — Production API Dockerfile (Render free tier)
+#
+#  Built from the REPO ROOT as its Docker build context (see render.yaml:
+#  dockerContext "."), unlike backend/Dockerfile which local
+#  docker-compose builds with context ./backend.
+#
+#  Why the wider context: app/api/*.py import ml.* and data_pipeline.* as
+#  sibling top-level packages. Locally those are bind-mounted into /pkgs;
+#  a production image has no bind mounts, so they are COPY'd in here.
+# ─────────────────────────────────────────────────────────────────
+
+FROM python:3.11-slim
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y \
+    curl \
+    build-essential \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY backend/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Bake the embedding model into the image so a woken free instance can
+# serve its first ATS / recommendation request without a ~90 MB download.
+ENV FASTEMBED_CACHE_PATH=/opt/fastembed_cache
+RUN python -c "from fastembed import TextEmbedding; TextEmbedding('sentence-transformers/all-MiniLM-L6-v2', cache_dir='/opt/fastembed_cache')"
+
+COPY backend/ ./
+COPY ml/ /pkgs/ml/
+COPY data_pipeline/ /pkgs/data_pipeline/
+
+ENV PYTHONPATH=/app:/pkgs
+ENV PYTHONUNBUFFERED=1
+ENV ENVIRONMENT=production
+
+EXPOSE 8000
+
+# Render's free tier has no pre-deploy step, so migrations run on boot.
+# They are idempotent (alembic upgrade head is a no-op when current). If they
+# fail, the API still starts so /health can report the database error
+# instead of the service crash-looping. Shell form so ${PORT} expands.
+CMD ["sh", "-c", "alembic upgrade head || echo 'WARNING: alembic upgrade failed, starting API anyway'; exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]

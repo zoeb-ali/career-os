@@ -1,10 +1,9 @@
 # ─────────────────────────────────────────────────────────────────
 #  Career OS — Production Docker Compose
 #
-#  Railway does NOT run this file — it deploys each service
-#  individually from railway.json (api) and frontend/railway.toml
-#  (frontend), with Postgres/Redis as plugins and Qdrant as a Docker
-#  Image service (see DEPLOY.md). This compose file exists to build
+#  The hosted deployment does NOT run this file — the API runs on Render
+#  (render.yaml), the frontend on Vercel, Postgres on Neon and Qdrant on
+#  Qdrant Cloud (see DEPLOY.md). This compose file exists to build
 #  and run the exact same production images locally, so you can catch
 #  a broken prod build before pushing it:
 #
@@ -12,12 +11,12 @@
 #      docker compose -f docker-compose.prod.yml up --build
 #
 #  Differences from docker-compose.yml (dev):
-#    - no bind mounts — the image is the artifact, same as Railway ships
+#    - no bind mounts — the image is the artifact, same as Render ships
 #    - no mlflow (unused in the live request path, drops the service)
 #    - ENVIRONMENT=production, LOG_LEVEL=INFO
 #    - secrets have no insecure defaults — unset = the container refuses
 #      to start rather than quietly running with "career_pass" etc.
-#    - api/worker listen on $PORT, matching Railway's contract
+#    - api/worker listen on $PORT, matching Render's contract
 # ─────────────────────────────────────────────────────────────────
 
 services:
@@ -25,7 +24,7 @@ services:
   api:
     build:
       context: .
-      dockerfile: backend/Dockerfile.railway
+      dockerfile: backend/Dockerfile.prod
     container_name: career-os-api-prod
     ports:
       - "${PORT:-8000}:${PORT:-8000}"
@@ -70,7 +69,7 @@ services:
   worker:
     build:
       context: .
-      dockerfile: backend/Dockerfile.railway
+      dockerfile: backend/Dockerfile.prod
     container_name: career-os-worker-prod
     command: celery -A app.workers.celery_app worker --loglevel=info --queues=ats,embeddings,default --concurrency=2
     environment:

@@ -6,6 +6,7 @@ Never hardcode secrets. Access settings via: from app.config import settings
 """
 from functools import lru_cache
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -32,6 +33,16 @@ class Settings(BaseSettings):
 
     # ── PostgreSQL ───────────────────────────────────────────────
     postgres_url: str = "postgresql://career_user:career_pass@localhost:5432/career_os"
+
+    @field_validator("postgres_url")
+    @classmethod
+    def _normalise_postgres_scheme(cls, v: str) -> str:
+        # Hosted providers (Neon, Render, Heroku-style URLs) sometimes hand out
+        # "postgres://", which SQLAlchemy 2 rejects. Normalise once here so
+        # every consumer (async engine, sync engine, Alembic) gets a valid URL.
+        if v.startswith("postgres://"):
+            return "postgresql://" + v[len("postgres://"):]
+        return v
 
     # ── Redis ────────────────────────────────────────────────────
     redis_url: str = "redis://localhost:6379/0"
@@ -83,6 +94,15 @@ class Settings(BaseSettings):
     # ── Celery ───────────────────────────────────────────────────
     celery_broker_url: str = "redis://localhost:6379/1"
     celery_result_backend: str = "redis://localhost:6379/2"
+
+    # Inline task mode: run Celery tasks synchronously in the calling process
+    # instead of sending them to Redis for a separate worker. Used on free
+    # hosting (single Render instance, no Redis) and in the GitHub Actions
+    # ingestion job. Set TASKS_INLINE=true to enable.
+    tasks_inline: bool = False
+    # Pause between inline LLM skill-extraction calls so a big ingestion run
+    # stays under Groq's free-tier requests-per-minute limit.
+    skill_extraction_delay_s: float = 0.0
 
     @property
     def is_production(self) -> bool:

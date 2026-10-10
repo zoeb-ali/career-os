@@ -9,12 +9,12 @@
 **Developer:** Zoeb Ali Khan — M.Sc. Data Science, Universität Bielefeld
 **Purpose:** Production-grade portfolio project demonstrating the complete Data Science lifecycle
 **Timeline:** Built over multiple sessions across several weeks
-**Status:** Live in production on Railway
+**Status:** Moved off Railway (trial ended Oct 2026) to free-forever hosting: Vercel + Render + Neon + Qdrant Cloud + GitHub Actions
 
 **Live URLs:**
-- Frontend: https://frontend-production-98e0.up.railway.app
-- Backend API: https://career-os-production-43d8.up.railway.app
-- API Docs: https://career-os-production-43d8.up.railway.app/docs
+- Frontend (Vercel): __FRONTEND_URL__
+- Backend API (Render): __API_URL__
+- API Docs: __API_URL__/docs
 - GitHub: https://github.com/zoeb-ali/career-os
 
 ---
@@ -60,9 +60,9 @@
 
 **Infrastructure**
 - Docker Compose: 6 services (api, worker, postgres, redis, qdrant, mlflow)
-- Railway production deployment (backend + frontend + PostgreSQL + Redis + Qdrant)
+- Production on free tiers: Vercel (frontend), Render (API, 512 MB), Neon (Postgres), Qdrant Cloud (vectors)
 - GitHub Actions CI (tests + lint on every push)
-- GitHub Actions CD (auto-deploy to Railway on push to main)
+- GitHub Actions: nightly ingestion (`ingest.yml`) + daytime keep-alive pings (`keepalive.yml`); Render and Vercel auto-deploy on push to main
 - MLflow experiment tracking
 
 ---
@@ -183,6 +183,22 @@ Every module is a self-contained node with:
 - Stage 2: Embed column header text with fastembed → compare to 50+ training examples per canonical field → combine with content heuristics (does this column contain dates? URLs? small vocabulary?) → confidence score per field
 - Handles emoji status values (✅ → "applied", 📋 → "saved"), German terms, typos, creative column names
 
+### Problem 19: Railway trial ended, site went offline
+**Symptom:** Both Railway services stopped in October 2026 when the trial credit ran out.
+**Solution:** Moved to hosts with permanent free tiers: Vercel (frontend), Render free web service (API), Neon (Postgres), Qdrant Cloud free cluster (vectors). Removed `railway.json`, `frontend/railway.toml`, `.railway/`, `deploy.sh`, `deploy.yml` and `backend/Dockerfile.railway`; added `render.yaml` and `backend/Dockerfile.prod`.
+
+### Problem 20: No worker or Redis on free hosting
+**Root cause:** Free tiers give one web process and no always-on worker, but uploads and ingestion queued Celery tasks.
+**Solution:** `TASKS_INLINE=true` sets Celery `task_always_eager`, so `.delay()` runs in the API process. Bulk ingestion moved to a nightly GitHub Actions job (`ingest.yml`) that runs migrations, seeding, ingestion and the market snapshot, throttling Groq calls with `SKILL_EXTRACTION_DELAY_S`. `/health` reports Redis as `not_started` in this mode.
+
+### Problem 21: asyncpg rejects Neon connection strings
+**Root cause:** Neon URLs carry libpq parameters (`sslmode=require&channel_binding=require`) that asyncpg doesn't understand; Neon/Render may also hand out `postgres://`.
+**Solution:** `config.py` normalises `postgres://` to `postgresql://`; `database.py` strips the libpq parameters, maps `sslmode` to asyncpg's `ssl`, disables the statement cache on `-pooler` hosts, and uses a smaller pool with `pool_recycle` because Neon scales to zero.
+
+### Problem 22: Render cold starts vs. shared free hours
+**Root cause:** Render's free service sleeps after 15 min idle (about 1 min to wake), but its 750 free hours per month are shared by the whole workspace, which also hosts the Electricity Forecaster API. Pinging 24/7 would use about 744 h alone.
+**Solution:** Added a dependency-free `/ping` endpoint and `keepalive.yml`, which pings it every 10 minutes from 07:00 to 23:00 Berlin time (about 500 h/month). The embedding model is baked into the Docker image so a woken instance doesn't download it. Measured API memory: about 190 MB at start, 280 MB after `/health`, roughly 450 MB with the embedding model, inside the 512 MB limit.
+
 ---
 
 ## TECH STACK SUMMARY
@@ -190,15 +206,15 @@ Every module is a self-contained node with:
 | Layer | Technology | Why |
 |-------|-----------|-----|
 | API | FastAPI | Async, auto-docs, Pydantic validation |
-| DB | PostgreSQL 16 | Relational, reliable, free on Railway |
+| DB | PostgreSQL (Neon) | Relational, permanent free plan, scales to zero |
 | Vector DB | Qdrant | Purpose-built ANN search, free tier |
-| Cache/Queue | Redis + Celery | Async task processing |
+| Cache/Queue | Redis + Celery (local only) | Async task processing; production runs tasks inline (`TASKS_INLINE=true`) |
 | LLM | Groq (free) | OpenAI-compatible, fast, no credit card |
 | Embeddings | fastembed | No PyTorch dependency, same quality |
 | Orchestration | Prefect | Python-native, free cloud tier |
 | ML Tracking | MLflow | Experiment versioning |
 | Frontend | Next.js 14 | App Router, TypeScript, SSE support |
-| Deployment | Railway | Docker-native, free tier, instant URLs |
+| Deployment | Vercel + Render + Neon + Qdrant Cloud | All free forever, no credit card |
 | CI | GitHub Actions | Free for public repos |
 
 ---
@@ -214,7 +230,7 @@ Groq is completely free with no credit card. OpenAI requires payment. Groq's API
 **Why node architecture (self-contained modules)?**
 Production debugging without this is a nightmare. With it: one grep command finds the exact error. Every node has its own error codes, logger, and health check. When /health shows `"ats_analyzer": "error"`, you know exactly where to look.
 
-**Why Railway over AWS?**
+**Why Railway over AWS? (superseded, see migration below)**
 AWS requires VPC setup, IAM roles, ECS task definitions, ALB configuration — weeks of DevOps work. Railway deploys a Docker Compose app in minutes with one command. For a solo portfolio project, shipping fast is more valuable than using the most enterprise tool.
 
 **Why Prefect over Airflow?**
@@ -235,7 +251,7 @@ career-os/
 │   │   └── middleware/       logging + error handling
 │   ├── migrations/           Alembic (renamed from alembic/ to avoid shadowing)
 │   ├── Dockerfile            local dev
-│   └── Dockerfile.railway    production (repo-root context, includes ml/ + data_pipeline/)
+│   └── Dockerfile.prod       production API for Render (repo-root context, includes ml/ + data_pipeline/, embedding model baked in)
 ├── ml/                       all ML nodes
 │   ├── shared/               embedder.py + llm_client.py
 │   ├── ats_analyzer/
@@ -252,18 +268,18 @@ career-os/
 │   ├── app/                  10 pages
 │   ├── components/
 │   ├── lib/                  api.ts client
-│   ├── Dockerfile            production Next.js standalone build
-│   └── railway.toml          frontend Railway config
+│   └── Dockerfile            production Next.js standalone build (Vercel builds from source instead)
 ├── samples/                  sample-applications.xlsx, sample-applications.pdf
 ├── docker-compose.yml        6 services local dev
 ├── docker-compose.prod.yml   production (no mlflow, no volume mounts)
-├── railway.json              Railway backend config
+├── render.yaml               Render blueprint for the API
 ├── Makefile                  make dev/test/health/migrate/seed/ingest
 ├── HANDOFF.md                this file
 ├── DEPLOY.md                 deployment instructions
 └── .github/workflows/
     ├── ci.yml                test + lint on every push
-    └── deploy.yml            auto-deploy to Railway on main
+    ├── ingest.yml            nightly job ingestion into Neon + Qdrant
+    └── keepalive.yml         pings the API every 10 min, 07:00 to 23:00 Berlin
 ```
 
 ---
@@ -272,11 +288,11 @@ career-os/
 
 ```
 PROJECT: AI Career Operating System (career-os)
-STATUS: Complete and live in production on Railway
+STATUS: Complete; hosted on Vercel + Render + Neon + Qdrant Cloud (free forever)
 GITHUB: https://github.com/zoeb-ali/career-os
-LIVE: https://frontend-production-98e0.up.railway.app
-API: https://career-os-production-43d8.up.railway.app
-STACK: FastAPI + PostgreSQL + Redis + Qdrant + Groq LLM + fastembed + Next.js 14 + Docker + Railway + Prefect + MLflow
+LIVE: __FRONTEND_URL__
+API: __API_URL__
+STACK: FastAPI + PostgreSQL (Neon) + Qdrant Cloud + Groq LLM + fastembed + Next.js + Docker + Render + Vercel + Prefect + MLflow + GitHub Actions
 ARCHITECTURE: Every module = self-contained node (logger + error codes + health check + tests)
 DATA: 656 real jobs from Adzuna/Reed/Remotive in production DB
 KEY FILES: HANDOFF.md (this), DEPLOY.md (deployment steps)

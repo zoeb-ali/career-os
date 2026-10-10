@@ -1,0 +1,43 @@
+# Render Blueprint — Career OS backend API on Render's free tier.
+# Render dashboard → New → Blueprint → pick this repo. Values marked
+# `sync: false` are entered once in the dashboard (they are secrets and
+# never live in git). See DEPLOY.md for the full walkthrough.
+services:
+  - type: web
+    name: career-os-api
+    runtime: docker
+    plan: free
+    region: frankfurt
+    dockerfilePath: ./backend/Dockerfile.prod
+    dockerContext: .
+    healthCheckPath: /ping
+    autoDeploy: true
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: LOG_LEVEL
+        value: INFO
+      - key: TASKS_INLINE
+        value: "true"
+      - key: GROQ_MODEL_EXTRACTION
+        value: openai/gpt-oss-20b
+      - key: GROQ_MODEL_ADVISOR
+        value: openai/gpt-oss-120b
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: POSTGRES_URL
+        sync: false
+      - key: QDRANT_URL
+        sync: false
+      - key: QDRANT_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: ADZUNA_APP_ID
+        sync: false
+      - key: ADZUNA_APP_KEY
+        sync: false
+      - key: REED_API_KEY
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false

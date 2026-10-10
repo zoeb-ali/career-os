@@ -19,7 +19,7 @@ Usage in workers/scripts (sync):
 from functools import lru_cache
 
 from sqlalchemy import create_engine
-from sqlalchemy.engine import Engine
+from sqlalchemy.engine import URL, Engine, make_url
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
 
@@ -30,17 +30,41 @@ logger = get_logger("database")
 
 
 # ── Async engine (used by FastAPI endpoints) ───────────────────────
-def _make_async_url(url: str) -> str:
-    """Convert sync postgres:// URL to async postgresql+asyncpg://"""
-    return url.replace("postgresql://", "postgresql+asyncpg://", 1)
+def _make_async_url(url: str) -> tuple[URL, dict]:
+    """
+    Convert a sync Postgres URL into an asyncpg URL plus connect_args.
 
+    asyncpg does not understand libpq query parameters such as
+    ?sslmode=require&channel_binding=require (what Neon and most hosted
+    providers put in their connection strings) and fails to connect if they
+    are passed through. Strip them and translate sslmode into asyncpg's own
+    `ssl` argument instead. Pooled endpoints (PgBouncer in transaction mode,
+    e.g. Neon "-pooler" hosts) also need asyncpg's statement cache disabled.
+    """
+    u = make_url(url)
+    query = dict(u.query)
+    sslmode = query.pop("sslmode", None)
+    query.pop("channel_binding", None)
+    u = u.set(drivername="postgresql+asyncpg", query=query)
+
+    connect_args: dict = {}
+    if sslmode in ("require", "verify-ca", "verify-full", "prefer"):
+        connect_args["ssl"] = "require"
+    if u.host and "-pooler" in u.host:
+        connect_args["statement_cache_size"] = 0
+    return u, connect_args
+
+
+_async_url, _async_connect_args = _make_async_url(settings.postgres_url)
 
 engine = create_async_engine(
-    _make_async_url(settings.postgres_url),
+    _async_url,
+    connect_args=_async_connect_args,
     echo=settings.is_development,   # log SQL in dev, not in prod
-    pool_size=10,
-    max_overflow=20,
-    pool_pre_ping=True,             # check connection before use
+    pool_size=5,
+    max_overflow=5,
+    pool_pre_ping=True,             # check connection before use (Neon scales to zero)
+    pool_recycle=300,
 )
 
 AsyncSessionLocal = async_sessionmaker(

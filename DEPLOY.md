@@ -1,161 +1,137 @@
-# Deploying Career OS to Railway
+# Deploying Career OS on free-forever hosting
 
-This repo deploys as **five Railway services**: `api` and `frontend` (built
-from this repo via Docker), plus `Postgres` and `Redis` (one-click plugins)
-and `qdrant` (a Docker Image service, since Railway doesn't have a Qdrant
-plugin). The steps below are a **one-time setup** — Railway doesn't support
-creating plugins/services from a bare repo with zero dashboard interaction,
-so this is the part that can't be scripted. Once it's done, every subsequent
-deploy really is one command (`railway up`, `./deploy.sh`, or just `git push`
-via the GitHub Action) — see [After setup](#after-setup) at the bottom.
+Career OS runs entirely on free tiers that don't expire and need no credit card:
 
-## 1. Create the project
+| Part | Host | Free tier | Notes |
+|------|------|-----------|-------|
+| Website (Next.js) | **Vercel** Hobby | Free forever | Rebuilds on every push to `main` |
+| Backend API (FastAPI) | **Render** free web service | 512 MB RAM, 750 h/month per workspace | Sleeps after 15 min idle, ~1 min to wake |
+| Database | **Neon** Postgres | 1 GB, permanent free plan | Scales to zero after 5 min idle, wakes in < 1 s |
+| Vector search | **Qdrant Cloud** free cluster | 1 GB RAM, 4 GB disk | Holds job + resume embeddings |
+| Daily job refresh | **GitHub Actions** (`ingest.yml`) | Free for public repos | Runs at 03:17 UTC daily |
+| Keep-awake pings | **GitHub Actions** (`keepalive.yml`) | Free for public repos | Every 10 min, 07:00 to 23:00 Berlin time |
 
-1. Go to <https://railway.app> and sign up / log in with GitHub.
-2. **New Project → Deploy from GitHub repo** → select `zoeb-ali/career-os`.
-3. Railway finds `/railway.json` at the repo root and creates your first
-   service (`api`) from it — `DOCKERFILE` builder, `backend/Dockerfile.railway`.
-   Rename the service to `api` if Railway named it after the repo.
+Redis and the Celery worker are not used in production. With `TASKS_INLINE=true`
+the API runs embedding and skill-extraction tasks inside its own process, and the
+heavy batch work (ingesting hundreds of jobs) runs in GitHub Actions instead.
+Local development (`make dev`) still uses the full Docker Compose stack.
 
-## 2. Add PostgreSQL and Redis (one click each)
-
-In the project canvas: **+ New → Database → Add PostgreSQL**, then
-**+ New → Database → Add Redis**. Nothing to configure — Railway provisions
-both and exposes their connection info as service variables.
-
-> **Gotcha:** this app reads `POSTGRES_URL`, but Railway's Postgres plugin
-> exposes it as `DATABASE_URL`. Redis's variable is already named
-> `REDIS_URL` (no rename needed) — see the variable list in step 4.
-
-## 3. Add Qdrant
-
-**+ New → Empty Service**, then set it to deploy from a Docker image
-(**Settings → Source → Docker Image**): `qdrant/qdrant:v1.9.1`. Rename the
-service to `qdrant`. Under **Settings → Volumes**, add a volume mounted at
-`/qdrant/storage` — without it, every redeploy wipes your embeddings.
-
-## 4. Set environment variables on the `api` service
-
-**api service → Variables**, add (values from your own `.env`, not the
-placeholders in `.env.example`):
-
-| Variable | Value |
-|---|---|
-| `ENVIRONMENT` | `production` |
-| `LOG_LEVEL` | `INFO` |
-| `API_PREFIX` | `/api/v1` |
-| `CORS_ORIGINS` | your frontend's Railway URL, e.g. `https://career-os-frontend.up.railway.app` (set after step 6 — see note there) |
-| `POSTGRES_URL` | `${{Postgres.DATABASE_URL}}` — Railway variable reference, not a literal value |
-| `REDIS_URL` | `${{Redis.REDIS_URL}}` |
-| `CELERY_BROKER_URL` | `${{Redis.REDIS_URL}}` |
-| `CELERY_RESULT_BACKEND` | `${{Redis.REDIS_URL}}` |
-| `QDRANT_URL` | `http://qdrant.railway.internal:6333` (adjust the hostname if you named the service something other than `qdrant`) |
-| `QDRANT_API_KEY` | leave empty unless you set one on the Qdrant service |
-| `JWT_SECRET_KEY` | generate with `openssl rand -hex 32` — do not reuse the dev value |
-| `JWT_ALGORITHM` | `HS256` |
-| `JWT_EXPIRE_MINUTES` | `10080` |
-| `GROQ_API_KEY` | from <https://console.groq.com> |
-| `GROQ_MODEL_EXTRACTION` | `llama-3.1-8b-instant` |
-| `GROQ_MODEL_ADVISOR` | `llama-3.3-70b-versatile` |
-| `EMBEDDING_MODEL` | `all-MiniLM-L6-v2` |
-| `ADZUNA_APP_ID` / `ADZUNA_APP_KEY` | optional — job ingestion connector |
-| `REED_API_KEY` | optional — job ingestion connector |
-| `THE_MUSE_API_KEY` | optional |
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | optional — only if using Google OAuth |
-| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` / `AWS_REGION` / `S3_BUCKET` | optional — only if you wire up resume storage to S3 |
-
-`CELERY_BROKER_URL`/`CELERY_RESULT_BACKEND` normally use Redis DBs 1/2 in
-dev (`docker-compose.yml`); pointing them at the same DB 0 as `REDIS_URL`
-is a simplification that's fine at this scale — split them out with
-`?` query params if you outgrow it.
-
-Railway auto-detects `/health` from `railway.json`'s `healthcheckPath` — no
-action needed there.
-
-## 5. Deploy the frontend
-
-**+ New → GitHub Repo** → same repo again → this time set **Settings → Root
-Directory** to `frontend`. Railway picks up `frontend/railway.toml` there
-(`DOCKERFILE` builder, `frontend/Dockerfile`). Rename the service to
-`frontend`.
-
-Get the `api` service's public URL from **api → Settings → Networking →
-Generate Domain** if you haven't already, then on the `frontend` service:
-
-> **Gotcha — this is the one people miss:** `NEXT_PUBLIC_API_URL` gets
-> compiled into the client-side JS bundle at *build* time, not read at
-> container startup. Add it under **Variables**, then explicitly mark it as
-> a **build-time variable** (the toggle next to the variable, or add it
-> under **Settings → Build → Build Args**) so it's actually present during
-> `npm run build`, not just when the container runs. If you only add it as
-> a normal runtime variable, the frontend will silently keep calling
-> `http://localhost:8000` from every browser.
-
-```
-NEXT_PUBLIC_API_URL=https://<your-api-service>.up.railway.app
-```
-
-Generate a public domain for `frontend` too (**Settings → Networking →
-Generate Domain**), then go back to the `api` service and set `CORS_ORIGINS`
-to that URL (step 4) — the two services' domains are circular, so this is
-the order that avoids chasing your tail.
-
-## 6. (Optional but recommended) Add a worker service
-
-The Docker/compose setup runs a Celery worker for background resume
-embedding, skill extraction, and ATS scoring queue processing
-(`app/workers/*`). Without it, `POST /resumes/upload` and friends still
-succeed (they enqueue to Redis and move on), but nothing ever *processes*
-those jobs — resumes stay stuck with no embedding, no extracted skills.
-
-To add it: **+ New → GitHub Repo** → same repo → Root Directory `/` →
-**Settings → Deploy → Custom Start Command**:
-```
-celery -A app.workers.celery_app worker --loglevel=info --queues=ats,embeddings,default --concurrency=2
-```
-It can reuse the exact same env vars as `api` (copy them over, or use
-Railway's "Reference variables from another service" if available in your
-plan).
-
-## 7. Verify
-
-- `https://<api-domain>/health` → `{"overall": "ok", ...}`
-- `https://<frontend-domain>/` → landing page loads, live job count in the
-  hero pulls from the real API (confirms `NEXT_PUBLIC_API_URL` baked in
-  correctly)
-- Register an account, upload a resume, run an ATS score — exercises
-  Postgres, Redis, Qdrant, and Groq all in one pass.
+The setup below is **one time**. After it, every `git push` to `main`
+redeploys Render and Vercel automatically.
 
 ---
 
-## After setup
+## 1. Neon (database)
 
-Once the five services above exist, you don't need the dashboard again for
-routine deploys:
+1. Go to <https://neon.com> and sign up with GitHub.
+2. **Create project** → name `career-os`, Postgres 16, region **AWS Europe Central (Frankfurt)**.
+3. On the project dashboard click **Connect**. Leave **Connection pooling off**
+   (the direct connection works best with migrations) and copy the connection
+   string. It looks like
+   `postgresql://neondb_owner:...@ep-xxxx.eu-central-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require`
+   This is your **`POSTGRES_URL`**. Keep it secret.
 
-- **CLI, one command:** `./deploy.sh` (installs the Railway CLI if needed,
-  logs in, links the project, deploys `api` then `frontend`).
-- **Automatic on push:** merge to `main` — `.github/workflows/deploy.yml`
-  redeploys both services after CI passes, using a `RAILWAY_TOKEN` repo
-  secret (**Railway → Account Settings → Tokens**, then add it at
-  **GitHub repo → Settings → Secrets and variables → Actions**).
-- **Local prod-parity check** before either of those, if you want it:
-  `docker compose -f docker-compose.prod.yml up --build` runs the exact
-  same images against local Postgres/Redis/Qdrant containers instead of
-  Railway's.
+## 2. Qdrant Cloud (vector search)
 
-## Troubleshooting
+1. Go to <https://cloud.qdrant.io> and sign up.
+2. **Create cluster** → **Free** tier → provider/region in **Europe** → name `career-os`.
+3. When it's running, open the cluster and copy the **Cluster URL**
+   (`https://xxxx.eu-central-1-0.aws.cloud.qdrant.io:6333`, keep the `:6333`).
+   This is your **`QDRANT_URL`**.
+4. **API Keys** → **Create** → copy the key. This is your **`QDRANT_API_KEY`**.
 
-- **`/health` reports `degraded` or a node as `error`:** check that service's
-  entry in the JSON response — `postgres`/`redis`/`qdrant` failing usually
-  means a `${{Service.VAR}}` reference is wrong (typo'd service name, or it
-  hasn't finished provisioning yet). Adzuna/Reed showing `not_started` is
-  normal if you left those keys blank.
-- **Frontend loads but every API call fails as a network error:** almost
-  always the `NEXT_PUBLIC_API_URL` build-time-vs-runtime gotcha from step 5.
-  Fix the variable, then trigger a fresh deploy (redeploying without a
-  rebuild reuses the old baked-in value).
-- **CORS errors in the browser console:** `CORS_ORIGINS` on `api` doesn't
-  exactly match the frontend's URL (scheme + host, no trailing slash).
-- **Resumes upload but never get an ATS score / skills:** you skipped step
-  6 — there's no worker consuming the queue.
+The `jobs` and `resumes` collections are created automatically on first start.
+
+## 3. GitHub secrets (needed by the daily ingestion job)
+
+Repo → **Settings → Secrets and variables → Actions**.
+
+**Secrets** tab → **New repository secret**, once for each:
+
+| Name | Value |
+|------|-------|
+| `POSTGRES_URL` | Neon connection string (step 1) |
+| `QDRANT_URL` | Qdrant cluster URL (step 2) |
+| `QDRANT_API_KEY` | Qdrant API key (step 2) |
+| `GROQ_API_KEY` | from <https://console.groq.com/keys> |
+| `ADZUNA_APP_ID` | from <https://developer.adzuna.com> |
+| `ADZUNA_APP_KEY` | from <https://developer.adzuna.com> |
+| `REED_API_KEY` | from <https://www.reed.co.uk/developers/jobseeker> |
+
+## 4. Fill the database (first run)
+
+Repo → **Actions** → **Daily job ingestion** → **Run workflow** → `main`.
+
+It runs migrations, seeds the skill taxonomy, fetches jobs from Adzuna, Reed
+and Remotive, embeds them into Qdrant and extracts skills with Groq. The first
+run takes 20 to 40 minutes because skill extraction is throttled to stay under
+Groq's free rate limit. After that it runs by itself every night.
+
+## 5. Render (backend API)
+
+1. Go to <https://render.com> and sign up with GitHub.
+2. **New → Blueprint** → connect `zoeb-ali/career-os`. Render reads
+   `render.yaml` and proposes one service, **`career-os-api`** (free, Frankfurt,
+   Docker, `backend/Dockerfile.prod`).
+3. Fill in the values it asks for (everything marked `sync: false`):
+
+   | Key | Value |
+   |-----|-------|
+   | `POSTGRES_URL` | Neon connection string |
+   | `QDRANT_URL` | Qdrant cluster URL |
+   | `QDRANT_API_KEY` | Qdrant API key |
+   | `GROQ_API_KEY` | Groq key |
+   | `ADZUNA_APP_ID` / `ADZUNA_APP_KEY` / `REED_API_KEY` | job API keys |
+   | `CORS_ORIGINS` | your Vercel URL from step 6. Use `*` for now and change it after step 6 |
+
+   `JWT_SECRET_KEY` is generated by Render automatically.
+4. **Apply**. The first build takes about 5 to 10 minutes.
+5. Copy the service URL, e.g. `https://career-os-api.onrender.com`, and check
+   `https://career-os-api.onrender.com/health` shows `"overall": "ok"`.
+
+## 6. Vercel (website)
+
+1. Go to <https://vercel.com> and sign up with GitHub.
+2. **Add New → Project** → import `zoeb-ali/career-os`.
+3. **Root Directory** → `frontend` (important). Framework is detected as Next.js.
+4. **Environment Variables** → add
+   `NEXT_PUBLIC_API_URL` = your Render URL from step 5 (no trailing slash).
+5. **Deploy**. Copy the site URL, e.g. `https://career-os-xxxx.vercel.app`.
+6. Back in Render → `career-os-api` → **Environment** → set `CORS_ORIGINS` to
+   that Vercel URL → **Save** (Render redeploys).
+
+`NEXT_PUBLIC_API_URL` is baked in at build time. If you change it later, redeploy
+the Vercel project.
+
+## 7. Keep the API awake during the day
+
+Repo → **Settings → Secrets and variables → Actions → Variables** tab →
+**New repository variable**: `API_URL` = your Render URL.
+
+`keepalive.yml` then pings `/ping` every 10 minutes from 07:00 to 23:00 Berlin
+time, so visitors don't wait for a cold start. Overnight the API sleeps and
+wakes on the first request (about a minute). It stays inside Render's 750 free
+hours even with another free Render service in the same workspace.
+
+---
+
+## Maintenance
+
+- **Data stops refreshing / keep-alive stops:** GitHub pauses scheduled
+  workflows in public repos after 60 days without commits. Actions tab →
+  pick the workflow → **Enable workflow**.
+- **Groq model errors (`model_not_found`):** Groq retires models now and then.
+  Check <https://console.groq.com/docs/models> and update
+  `GROQ_MODEL_EXTRACTION` / `GROQ_MODEL_ADVISOR` in `render.yaml` and
+  `.github/workflows/ingest.yml`.
+- **Render shows "Out of memory":** the free instance has 512 MB; the API
+  measures about 450 MB with the embedding model loaded. If it gets killed,
+  check the Render **Events** tab.
+- **Database size:** Neon free is 1 GB per project. The `jobs` table is the
+  only one that grows; expired jobs are flagged `is_active = false` by ingestion.
+
+## Run the production image locally
+
+```bash
+docker compose -f docker-compose.prod.yml up --build
+```

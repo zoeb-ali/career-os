@@ -25,7 +25,11 @@ def _load_model():
         from fastembed import TextEmbedding
         logger.info("Loading fastembed model: all-MiniLM-L6-v2")
         start = time.perf_counter()
-        model = TextEmbedding("sentence-transformers/all-MiniLM-L6-v2")
+        # FASTEMBED_CACHE_PATH points at a directory baked into the production
+        # image at build time, so a freshly woken free instance doesn't have to
+        # re-download the ~90 MB model before it can answer its first request.
+        cache_dir = os.getenv("FASTEMBED_CACHE_PATH") or None
+        model = TextEmbedding("sentence-transformers/all-MiniLM-L6-v2", cache_dir=cache_dir)
         elapsed = round(time.perf_counter() - start, 1)
         logger.info(f"Embedding model loaded in {elapsed}s")
         return model

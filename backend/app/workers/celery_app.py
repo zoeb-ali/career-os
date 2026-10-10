@@ -46,3 +46,14 @@ celery_app.conf.update(
     task_soft_time_limit=120,     # warn after 2 min
     task_time_limit=180,          # kill after 3 min
 )
+
+# Free-hosting mode: no Redis broker and no worker process. `.delay()` then
+# runs the task immediately in the caller's process; failures are recorded on
+# the returned EagerResult instead of raised, matching the fire-and-forget
+# behaviour callers already expect from the queued path.
+if settings.tasks_inline:
+    celery_app.conf.update(
+        task_always_eager=True,
+        task_eager_propagates=False,
+        task_store_eager_result=False,
+    )

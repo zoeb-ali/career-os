@@ -23,6 +23,7 @@ Deploy to Prefect Cloud:
 from __future__ import annotations
 import asyncio
 import hashlib
+import time
 import uuid
 from datetime import datetime, timezone, timedelta
 from typing import Any
@@ -202,6 +203,10 @@ def queue_skill_extraction_tasks(job_ids: list[str]) -> int:
     for job_id in job_ids:
         extract_job_skills_task.delay(job_id)
         queued += 1
+        # In inline mode each .delay() is a real Groq call made right here, so
+        # throttle to stay under the free tier's requests-per-minute limit.
+        if settings.tasks_inline and settings.skill_extraction_delay_s > 0:
+            time.sleep(settings.skill_extraction_delay_s)
     logger.info(f"Queued {queued} skill extraction tasks")
     return queued
 

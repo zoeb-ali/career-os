@@ -28,6 +28,9 @@ def _check_postgres() -> dict:
 
 
 def _check_redis() -> dict:
+    if settings.tasks_inline:
+        # Free-hosting mode runs tasks in-process, so there is no broker to check.
+        return {"status": "not_started", "detail": "inline task mode — no Redis/Celery worker in this deployment"}
     try:
         import redis as r
         client = r.from_url(settings.redis_url, socket_connect_timeout=3)
@@ -141,6 +144,17 @@ def _check_forecaster() -> dict:
         return {"status": "ok", "detail": "Forecaster module importable"}
     except Exception as exc:
         return {"status": "error", "detail": str(exc)}
+
+
+@router.get("/ping", tags=["Health"])
+async def ping() -> dict:
+    """
+    Liveness probe with no dependencies. Used by the hosting platform's
+    health check and by the uptime pinger that keeps the free instance awake.
+    Deliberately touches nothing external: /health calls the job APIs, the
+    database and Qdrant, which would burn API quota at one call per minute.
+    """
+    return {"status": "ok"}
 
 
 @router.get("/health", tags=["Health"])

@@ -13,7 +13,7 @@
 
 **A production-grade platform combining job discovery, ATS resume analysis, AI career advice, and labor market intelligence — built as a full Data Science portfolio project.**
 
-[🌐 Live Demo](https://frontend-production-98e0.up.railway.app) · [📖 API Docs](https://career-os-production-43d8.up.railway.app/docs) · [🐛 Report Bug](https://github.com/zoeb-ali/career-os/issues)
+[🌐 Live Demo](__FRONTEND_URL__) · [📖 API Docs](__API_URL__/docs) · [🐛 Report Bug](https://github.com/zoeb-ali/career-os/issues)
 
 </div>
 
@@ -21,7 +21,7 @@
 
 ## 📌 What is Career OS?
 
-Career OS is a unified AI platform for students and job seekers that replaces scattered tools like LinkedIn Premium, Jobscan, Teal, and Huntr with a single system. It ingests real job data daily from multiple APIs, analyzes resumes with ML, recommends jobs using vector similarity, and answers career questions via a RAG-powered advisor — all running on a production-grade microservice architecture deployed on Railway.
+Career OS is a unified AI platform for students and job seekers that replaces scattered tools like LinkedIn Premium, Jobscan, Teal, and Huntr with a single system. It ingests real job data daily from multiple APIs, analyzes resumes with ML, recommends jobs using vector similarity, and answers career questions via a RAG-powered advisor — all running on a production-grade microservice architecture deployed entirely on free-forever hosting (Vercel, Render, Neon, Qdrant Cloud, GitHub Actions).
 
 > Built by **Zoeb Ali Khan** — M.Sc. Data Science, Universität Bielefeld
 
@@ -81,12 +81,14 @@ Career OS is a unified AI platform for students and job seekers that replaces sc
 
 ## 🚀 Live Deployment
 
-| Service | URL |
-|---------|-----|
-| 🌐 Frontend | https://frontend-production-98e0.up.railway.app |
-| 🔌 Backend API | https://career-os-production-43d8.up.railway.app |
-| 📖 API Docs | https://career-os-production-43d8.up.railway.app/docs |
-| ❤️ Health Check | https://career-os-production-43d8.up.railway.app/health |
+| Service | URL | Host |
+|---------|-----|------|
+| 🌐 Frontend | __FRONTEND_URL__ | Vercel |
+| 🔌 Backend API | __API_URL__ | Render (free) |
+| 📖 API Docs | __API_URL__/docs | Render (free) |
+| ❤️ Health Check | __API_URL__/health | Render (free) |
+
+Database on **Neon** Postgres, vectors on **Qdrant Cloud**, and a nightly **GitHub Actions** job refreshes the jobs. The API may take about a minute to wake if nobody has used it overnight. Full setup in [DEPLOY.md](DEPLOY.md).
 
 ---
 
@@ -121,7 +123,8 @@ Career OS is a unified AI platform for students and job seekers that replaces sc
 - **Drag-and-drop Kanban** — application tracker
 
 ### Infrastructure
-- **Railway** — production deployment (backend + frontend + PostgreSQL + Redis + Qdrant)
+- **Vercel** (frontend) · **Render** (API) · **Neon** (Postgres) · **Qdrant Cloud** (vectors) — all free tiers
+- **GitHub Actions** — nightly job ingestion, daytime keep-alive pings
 - **Docker Compose** — local development (6 services)
 - **MLflow** — experiment tracking for ATS and recommender models
 - **GitHub Actions** — CI on every push (tests + lint)
@@ -203,14 +206,14 @@ career-os/
 │   ├── forecaster/           # Prophet skill demand forecasting
 │   ├── skill_extractor/      # Groq LLM structured skill extraction
 │   └── import_parser/        # ML-powered column detection for Smart Import
-├── data-pipeline/            # ETL pipeline
+├── data_pipeline/            # ETL pipeline
 │   ├── connectors/           # Adzuna, Reed, Remotive
 │   ├── transformers/         # Dedup + skill normalization (85 canonical skills)
 │   └── flows/                # Prefect orchestration flows
 ├── frontend/                 # Next.js 14 app (10 pages)
 ├── samples/                  # Sample import files for testing Smart Import
 ├── docker-compose.yml        # 6 services for local dev
-├── railway.json              # Railway production deployment config
+├── render.yaml               # Render blueprint for the production API
 └── Makefile                  # make dev/test/health/ingest/setup
 ```
 
@@ -231,7 +234,7 @@ This project demonstrates the complete Data Science lifecycle:
 | **RAG** | Retrieval-augmented generation with intent classification |
 | **ML Column Detection** | Embedding similarity + content heuristics for intelligent spreadsheet parsing |
 | **MLOps** | MLflow experiment tracking, structured logging, health monitoring |
-| **Deployment** | Railway (production) + Docker Compose (local) + GitHub Actions CI/CD |
+| **Deployment** | Vercel + Render + Neon + Qdrant Cloud (production, free) · Docker Compose (local) · GitHub Actions CI + scheduled ingestion |
 
 ---
 
@@ -283,7 +286,7 @@ Test coverage includes unit tests for all ML nodes, API endpoint tests, health c
 | POST | `/api/v1/import/upload` | Smart Import — parse spreadsheet/PDF |
 | POST | `/api/v1/import/confirm` | Confirm and save imported applications |
 
-Full interactive docs at [https://career-os-production-43d8.up.railway.app/docs](https://career-os-production-43d8.up.railway.app/docs)
+Full interactive docs at [__API_URL__/docs](__API_URL__/docs)
 
 ---
 

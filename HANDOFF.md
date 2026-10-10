@@ -1,4 +1,7 @@
 # Career OS — Agent Handoff Document
+
+> **Hosting update (Oct 2026):** Railway is no longer used. Production runs on Vercel + Render + Neon + Qdrant Cloud with nightly GitHub Actions ingestion. See `DEPLOY.md` and `CAREER_OS_HANDOFF.md` for the current setup; Railway references below are historical.
+
 ## For: Claude Code (terminal) / Claude Cowork
 ## Read this entire file before touching any code.
 

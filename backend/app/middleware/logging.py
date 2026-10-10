@@ -26,7 +26,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
     """Logs every HTTP request with timing and status."""
 
     # Skip health checks — they'd spam the logs
-    SKIP_PATHS = {"/health", "/", "/favicon.ico"}
+    SKIP_PATHS = {"/health", "/ping", "/", "/favicon.ico"}
 
     async def dispatch(self, request: Request, call_next) -> Response:
         # Skip noisy paths

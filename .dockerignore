@@ -2,10 +2,10 @@
 #  Repo-root .dockerignore
 #
 #  Applies to any Docker build whose context is the repo root — that's
-#  backend/Dockerfile.railway (via railway.json / docker-compose.prod.yml).
+#  backend/Dockerfile.prod (via render.yaml / docker-compose.prod.yml).
 #  Without this, the build context includes frontend/node_modules and
 #  frontend/.next (well over 1GB combined) plus .git, none of which the
-#  Python backend image needs, and all of which make every Railway
+#  Python backend image needs, and all of which make every Render
 #  build slower than it has to be.
 #
 #  Frontend has its own frontend/.dockerignore, scoped to its own build
