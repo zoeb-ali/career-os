@@ -12,7 +12,7 @@ via the GitHub Action) — see [After setup](#after-setup) at the bottom.
 ## 1. Create the project
 
 1. Go to <https://railway.app> and sign up / log in with GitHub.
-2. **New Project → Deploy from GitHub repo** → select `zoeb7184/career-os`.
+2. **New Project → Deploy from GitHub repo** → select `zoeb-ali/career-os`.
 3. Railway finds `/railway.json` at the repo root and creates your first
    service (`api`) from it — `DOCKERFILE` builder, `backend/Dockerfile.railway`.
    Rename the service to `api` if Railway named it after the repo.

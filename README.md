@@ -8,12 +8,12 @@
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791?style=for-the-badge&logo=postgresql)](https://postgresql.org)
 [![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=for-the-badge&logo=docker)](https://docker.com)
 [![Python](https://img.shields.io/badge/Python-3.11-3776AB?style=for-the-badge&logo=python)](https://python.org)
-[![CI](https://github.com/zoeb7184/career-os/actions/workflows/ci.yml/badge.svg)](https://github.com/zoeb7184/career-os/actions/workflows/ci.yml)
+[![CI](https://github.com/zoeb-ali/career-os/actions/workflows/ci.yml/badge.svg)](https://github.com/zoeb-ali/career-os/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
 
 **A production-grade platform combining job discovery, ATS resume analysis, AI career advice, and labor market intelligence — built as a full Data Science portfolio project.**
 
-[🌐 Live Demo](https://frontend-production-98e0.up.railway.app) · [📖 API Docs](https://career-os-production-43d8.up.railway.app/docs) · [🐛 Report Bug](https://github.com/zoeb7184/career-os/issues)
+[🌐 Live Demo](https://frontend-production-98e0.up.railway.app) · [📖 API Docs](https://career-os-production-43d8.up.railway.app/docs) · [🐛 Report Bug](https://github.com/zoeb-ali/career-os/issues)
 
 </div>
 
@@ -137,7 +137,7 @@ Career OS is a unified AI platform for students and job seekers that replaces sc
 
 ### 1. Clone and configure
 ```bash
-git clone https://github.com/zoeb7184/career-os.git
+git clone https://github.com/zoeb-ali/career-os.git
 cd career-os
 cp .env.example .env
 # Fill in your API keys in .env
@@ -296,7 +296,7 @@ M.Sc. Data Science · Universität Bielefeld · Expected March 2027
 DataCamp Certified: Data Scientist Professional · Data Engineer Associate · Data Scientist Associate
 
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-Connect-0077B5?style=for-the-badge&logo=linkedin)](https://linkedin.com/in/zoeb-ali-khan)
-[![GitHub](https://img.shields.io/badge/GitHub-Follow-181717?style=for-the-badge&logo=github)](https://github.com/zoeb7184)
+[![GitHub](https://img.shields.io/badge/GitHub-Follow-181717?style=for-the-badge&logo=github)](https://github.com/zoeb-ali)
 
 ---
 
